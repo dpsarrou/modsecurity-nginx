@@ -1,13 +1,5 @@
 ARG NGINX_VERSION=1.15.11
-
-FROM alpine:3.9 as libmodsecurity-src
-RUN apk add --no-cache git curl
-RUN mkdir -p /usr/src && cd /usr/src \
-	&& git clone https://github.com/SpiderLabs/ModSecurity \
-	&& cd ModSecurity \
-	&& git checkout v3/master \
-	&& git submodule init \
-	&& git submodule update
+ARG LIB_TAG=v3-master-alpine
 
 FROM alpine:3.9 as build
 RUN apk add --no-cache \
@@ -26,13 +18,7 @@ RUN apk add --no-cache \
 		libxslt-dev \
 		linux-headers
 
-# These are not really necessery
-# RUN apk add --no-cache curl-dev geoip-dev libmaxminddb-dev lmdb-dev lmdb lua-dev doxygen
-
-FROM build as libmodsecurity
-COPY --from=libmodsecurity-src /usr/src/ModSecurity /usr/src/ModSecurity
-WORKDIR /usr/src/ModSecurity
-RUN sh build.sh && ./configure && make  && make install
+RUN apk add --no-cache curl-dev geoip-dev libmaxminddb-dev lmdb-dev lmdb lua-dev doxygen
 
 FROM alpine:3.9 as nginx-src
 ARG NGINX_VERSION
@@ -63,16 +49,27 @@ FROM build as modsecurity-nginx-src
 WORKDIR /usr/src
 RUN git clone --depth 1 https://github.com/SpiderLabs/ModSecurity-nginx.git
 
+FROM cminor/libmodsecurity:${LIB_TAG} as libmodsecurity
+
 FROM build as modsecurity-nginx-extension
-COPY --from=libmodsecurity /usr/local/modsecurity /usr/local/modsecurity
+COPY --from=libmodsecurity /usr/local/modsecurity /etc/nginx/modsec/modsecurity
 COPY --from=modsecurity-nginx-src /usr/src/ModSecurity-nginx /usr/src/ModSecurity-nginx
 COPY --from=nginx-src /usr/src/nginx /usr/src/nginx
 WORKDIR /usr/src/nginx
-RUN export MODSECURITY_INC="/usr/local/modsecurity/include/" && export MODSECURITY_LIB="/usr/local/modsecurity/lib/" && ./configure --with-compat --add-dynamic-module=../ModSecurity-nginx \
+RUN export MODSECURITY_INC="/etc/nginx/modsec/modsecurity/include/" && export MODSECURITY_LIB="/etc/nginx/modsec/modsecurity/lib/" && ./configure --with-compat --add-dynamic-module=../ModSecurity-nginx \
 	&& make modules \
-	&& mv objs/ngx_http_modsecurity_module.so /usr/lib/ngx_http_modsecurity_module.so
+	&& mv objs/ngx_http_modsecurity_module.so /etc/nginx/modsec/ngx_http_modsecurity_module.so
 
-FROM nginx:${NGINX_VERSION}-alpine
-RUN apk add --no-cache yajl libstdc++
-COPY --from=modsecurity-nginx-extension /usr/lib/ngx_http_modsecurity_module.so /etc/nginx/modules/
-COPY --from=modsecurity-nginx-extension /usr/local/modsecurity/lib /usr/local/modsecurity/lib
+FROM alpine:3.9 as owasp-crs
+RUN apk add --no-cache curl
+WORKDIR /usr/src
+RUN curl -fSL https://github.com/SpiderLabs/owasp-modsecurity-crs/archive/v3.1.0.tar.gz -o owasp-crs.tar.gz \
+    && tar -xzvf owasp-crs.tar.gz && mv /usr/src/owasp-modsecurity-crs-3.1.0 /usr/src/owasp-modsecurity-crs
+RUN cp /usr/src/owasp-modsecurity-crs/crs-setup.conf.example /usr/src/owasp-modsecurity-crs/crs-setup.conf
+
+FROM alpine:3.9
+COPY --from=modsecurity-nginx-extension /etc/nginx/modsec/ /etc/nginx/modsec
+COPY --from=owasp-crs /usr/src/owasp-modsecurity-crs /etc/nginx/modsec/owasp-modsecurity-crs
+COPY modsec/modsec.conf /etc/nginx/modsec/
+
+RUN ls -la /etc/nginx/modsec

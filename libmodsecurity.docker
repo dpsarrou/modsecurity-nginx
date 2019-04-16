@@ -1,0 +1,37 @@
+FROM alpine:3.9 as build
+RUN apk add --no-cache \
+		pcre-dev \
+		libxml2-dev \
+		git \
+		libtool \
+		automake \
+		autoconf \
+		g++ \
+		flex \
+		bison \
+		yajl-dev \
+		zlib-dev \
+		make \
+		libxslt-dev \
+		linux-headers
+RUN apk add --no-cache curl-dev geoip-dev libmaxminddb-dev lmdb-dev lmdb lua-dev doxygen
+
+FROM alpine:3.9 as libmodsecurity-src
+ARG LIB_VERSION=v3/master
+RUN apk add --no-cache git curl
+RUN mkdir -p /usr/src && cd /usr/src \
+	&& git clone https://github.com/SpiderLabs/ModSecurity \
+	&& cd ModSecurity \
+	&& git checkout ${LIB_VERSION} \
+	&& git submodule init \
+	&& git submodule update
+
+FROM build as libmodsecurity
+COPY --from=libmodsecurity-src /usr/src/ModSecurity /usr/src/ModSecurity
+WORKDIR /usr/src/ModSecurity
+RUN sh build.sh && ./configure && make && make install
+RUN cp /usr/src/ModSecurity/modsecurity.conf-recommended /usr/local/modsecurity/modsecurity.conf
+RUN cp /usr/src/ModSecurity/unicode.mapping /usr/local/modsecurity/unicode.mapping
+
+FROM alpine:3.9 as final
+COPY --from=libmodsecurity /usr/local/modsecurity /usr/local/modsecurity
