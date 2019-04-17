@@ -13,7 +13,7 @@ Images:
     ```
     COPY --from=cminor/libmodsecurity:v3-master-alpine /usr/local/modsecurity /usr/local/modsecurity
     ```
-- cminor/modsecurity-crsmodule:1.15.11-alpine
+- cminor/modsecurity-crsmodule:1.15.12-alpine
 
     The image contains the modsecurity-nginx module along with the owasp crs rule set.
     Normally to integrate nginx with modsecurity you need to compile the `libmodsecurity` library and then compile the `modsecurity-nginx` module
@@ -27,14 +27,14 @@ Images:
     # Install required runtime packages (mandatory due to libmodsecurity)
     RUN apk add --no-cache yajl libstdc++ curl lua libmaxminddb
     # Grab the modsecurity-nginx module files
-    COPY --from=cminor/modsecurity-crsmodule:1.15.11-alpine /etc/nginx/modsec /etc/nginx/modsec
+    COPY --from=cminor/modsecurity-crsmodule:1.15.12-alpine /etc/nginx/modsec /etc/nginx/modsec
     ```
     load_module /etc/nginx/modsec/ngx_http_modsecurity_module.so;
     modsecurity on;
     modsecurity_rules_file /etc/nginx/modsec/modsec.conf;
     ```
 
-- cminor/nginx-modsecurity-crs:1.15.11-alpine
+- cminor/nginx-modsecurity-crs:1.15.12-alpine
     The lightweight `nginx` webserver with the `modsecurity-ngin` module and the `owasp crs` ruleset in place.
     If you are not building your own custom nginx image, you can quickly start with this prebuilt `nginx`+`modsecurity`+`owasp crs`
     alpine based image. Everything is preinstalled and the image extends from  the official `nginx:*-alpine` image.
@@ -65,10 +65,10 @@ make libmodsecurity {lib_version=v3/master} {lib_tag=v3-master-alpine}
 ## ModSecurity-nginx module
 The image can easily be built with:
 ```
-make module {nginx_version=1.15.11} {lib_tag=v3-master-alpine}
+make module {nginx_version=1.15.12} {lib_tag=v3-master-alpine}
 ```
 
 ## Nginx with ModSecurity and OWASP OCR
 ```
-make nginx {nginx_version=1.15.11}
+make nginx {nginx_version=1.15.12}
 ```

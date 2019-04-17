@@ -1,4 +1,4 @@
-ARG NGINX_VERSION=1.15.11
+ARG NGINX_VERSION=1.15.12
 ARG LIB_TAG=v3-master-alpine
 
 FROM alpine:3.9 as build
@@ -61,15 +61,14 @@ RUN export MODSECURITY_INC="/etc/nginx/modsec/modsecurity/include/" && export MO
 	&& mv objs/ngx_http_modsecurity_module.so /etc/nginx/modsec/ngx_http_modsecurity_module.so
 
 FROM alpine:3.9 as owasp-crs
+ARG OWASP_CRS_VERSION=3.1.0
 RUN apk add --no-cache curl
 WORKDIR /usr/src
-RUN curl -fSL https://github.com/SpiderLabs/owasp-modsecurity-crs/archive/v3.1.0.tar.gz -o owasp-crs.tar.gz \
-    && tar -xzvf owasp-crs.tar.gz && mv /usr/src/owasp-modsecurity-crs-3.1.0 /usr/src/owasp-modsecurity-crs
+RUN curl -fSL https://github.com/SpiderLabs/owasp-modsecurity-crs/archive/v${OWASP_CRS_VERSION}.tar.gz -o owasp-crs.tar.gz \
+    && tar -xzvf owasp-crs.tar.gz && mv /usr/src/owasp-modsecurity-crs-${OWASP_CRS_VERSION} /usr/src/owasp-modsecurity-crs
 RUN cp /usr/src/owasp-modsecurity-crs/crs-setup.conf.example /usr/src/owasp-modsecurity-crs/crs-setup.conf
 
 FROM alpine:3.9
 COPY --from=modsecurity-nginx-extension /etc/nginx/modsec/ /etc/nginx/modsec
 COPY --from=owasp-crs /usr/src/owasp-modsecurity-crs /etc/nginx/modsec/owasp-modsecurity-crs
 COPY modsec/modsec.conf /etc/nginx/modsec/
-
-RUN ls -la /etc/nginx/modsec
