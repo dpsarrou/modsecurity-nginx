@@ -1,4 +1,4 @@
-ARG NGINX_VERSION=1.15.11
+ARG NGINX_VERSION=1.17.6
 
 FROM cminor/modsecurity-crs-module:${NGINX_VERSION}-alpine as module
 
